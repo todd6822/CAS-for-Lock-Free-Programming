@@ -1,0 +1,159 @@
+#include <iostream>
+#include <pthread.h>
+#include <stdio.h>
+#include <string>
+#include <unistd.h>
+#include <atomic>
+#include <sys/time.h>
+#include <cstring>
+#include <thread>
+#include <chrono>
+
+using namespace std;
+int totalValue=0;// this is the global value we are modifying with our thread
+int *pointerToValue=&totalValue;// this is a pointer the to total value so we can adjust the "totalValue" when the threads run
+
+std::atomic <int> threadToCycle;
+std::atomic <bool> b;
+// this is the atomic variable we are going to be changeing in our CAS loops
+
+struct myStruct// this is my struct, simply use to to tranfer multiple variables into a thread at once
+{
+
+int input1;
+int input2;
+int threadNumber;
+int cycles;
+
+
+
+};
+
+void *mySwap(void * id)// this is my swap function
+
+{
+
+struct myStruct *inputStruct=(struct myStruct*) id;// this is an instance of the struct we created earlier
+
+
+
+int threadTotal=inputStruct->input1;// we start off the thread total by adding the input1 from the stuct to it, it's set at a default value of 0 but just in case I want to change that later I made it possible
+
+cout<<" Thread number "<<inputStruct->threadNumber<<endl;// prints the thread number we're in
+
+threadToCycle=threadToCycle+threadTotal;//as indicate above this is just in case we want to change the default 0 variable of the struct input 1 variable in the future
+
+
+
+// this inserts a "*" while it's waiting on the correct thread, I needed to make sure that the funcstion waits for the right thread
+
+int y=(inputStruct->cycles);// set the limit value of the "y" in the for loop to the "cycles" value in the struct in case I want to change the number of cycles
+for (int x=0;x<=y;x++)// this is the for loop, it cycles "y" number of times and it incremeents to atomic variable by the value of input two durring each iteration
+{
+
+
+
+bool doTheyMatch=false;
+
+
+threadTotal=threadTotal+inputStruct->input2;// increaes the value of the threat total durring each itteration of the for loop by the value in the struct vaiable 2
+
+
+//cout<<"New input value"<< newInputValue<<endl;// writes the value of the second input variable
+
+
+
+
+
+while(!b.compare_exchange_weak(doTheyMatch,true ))// ok this works as a gate of sorts, there is an atomic variable that is set to false,  if the atmotic variable remains at false, when it's
+//with the "doTheyMatch" variable that is also set at false, then the for loop can continue.  If another thread has is setting the atomic variable to true, then the b variable or atomic variable will
+// not match the "doTheyMatch" variable and the while loop will continue intill no other thread is using the atomic variable.  This ensures that you aren't wrting to the save variable at them same time with
+//mulitple threads
+//
+{
+
+
+}
+totalValue=totalValue+inputStruct->input2;// incremenets the total value variable by the value in the struct input variable 2
+cout<<" thread Total "<<"For Thread: "<<inputStruct->threadNumber<<": "<<threadTotal<<endl;//prints out the total of each thread as it process
+    }
+
+
+}
+
+
+
+int main()
+
+{
+threadToCycle=0;
+pthread_t t1,t2,t3;
+
+struct myStruct struct1;// I pass three structs, one to each thread.  these structs are used to update a global value "totalValue"
+struct myStruct struct2;
+struct myStruct struct3;
+
+
+
+int input1Struct1=0;// assign default values the variable.  These variables will be update in the next section then added to the values in the node
+int input2Struct1=0;
+int input1Struct2=0;
+int input2Struct2=0;
+int input1Struct3=0;
+int input2Struct3=0;
+
+
+cout<<" input value for thread 1"<<endl;// ask the user for input value in 2 of the int variables in each of the structs
+cin>>input2Struct1;
+/*cout<<" input value 2 for thread 1"<<endl;
+cin>>input2Struct1;*/
+cout<<" input value for thread 2"<<endl;
+cin>>input2Struct2;
+/*cout<<" input value 2 for thread 2"<<endl;
+cin>>input2Struct2;*/
+cout<<" input value for thread 3"<<endl;
+cin>>input2Struct3;/*
+cout<<" input value 2 for thread 3"<<endl;
+cin>>input2Struct3;*/
+
+
+struct1.threadNumber=1;//assings the thread numbers and assigned the values in the above variables to the values in each struct variables
+struct1.input1=input1Struct1;
+struct1.input2=input2Struct1;
+struct1.cycles=4000;
+
+struct2.threadNumber=2;
+struct2.input1=input1Struct2;
+struct2.input2=input2Struct2;
+struct2.cycles=3000;
+
+struct3.threadNumber=3;
+struct3.input1=input1Struct3;
+struct3.input2=input2Struct3;
+struct3.cycles=6000;
+
+// create P threads useing my "swap" function and passing the struct to the functions
+
+
+
+
+
+
+
+int valueFromThread1=(input1Struct1+(input2Struct1+(input2Struct1*struct1.cycles)));// this is the computed value of what each of the threads should have
+int valueFromThread2=(input1Struct2+(input2Struct2+(input2Struct2*struct2.cycles)));
+int valueFromThread3=(input1Struct3+(input2Struct3+(input2Struct3*struct3.cycles)));
+
+
+
+int nonAtomicTotal=valueFromThread1+valueFromThread2+valueFromThread3;// this adds the non atomic calculated values of each of the threads together
+
+cout<<" The Non atomic total should be: "<<nonAtomicTotal;// outputs the total value of the nonatomic calculations
+int p1=pthread_create(&t1,NULL,mySwap,(void*) &struct1);
+int p2=pthread_create(&t2,NULL,mySwap,(void*) &struct2);
+int p3=pthread_create(&t3,NULL,mySwap,(void*) &struct3);
+
+
+
+
+cout<<"The total value from thread 1 should be "<<valueFromThread1<<endl;// outputs the computed value of each of the threads
